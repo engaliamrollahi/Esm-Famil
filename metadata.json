@@ -1,0 +1,6 @@
+{
+  "name": "اسم فامیل",
+  "description": "بازی کامل اسم فامیل با ۲۰ بخش متنوع، انتخاب حروف الفبا و زمان، حریف هوشمند، راهنمای مرحله‌به‌مرحله و بخش تقلب جامع",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
