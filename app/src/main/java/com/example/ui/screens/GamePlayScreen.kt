@@ -38,6 +38,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -63,6 +64,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.example.model.ActiveRoundState
 import com.example.model.Category
+import com.example.model.GameMode
 import com.example.model.PersianTextHelper
 import com.example.ui.components.LetterTileBadge
 import com.example.ui.components.categoryIcon
@@ -75,6 +77,7 @@ import com.example.ui.theme.TerracottaRose
 fun GamePlayScreen(
     roundState: ActiveRoundState,
     soundEnabled: Boolean,
+    waitingForOpponentAnswers: Boolean = false,
     onToggleSound: () -> Unit,
     onAnswerChange: (Category, String) -> Unit,
     onSubmitRound: () -> Unit,
@@ -127,7 +130,11 @@ fun GamePlayScreen(
                             LetterTileBadge(letter = roundState.targetLetter, size = 48.dp)
                             Column {
                                 Text(
-                                    text = "حرف «${roundState.targetLetter}»",
+                                    text = if (roundState.gameMode == GameMode.LOCAL_NETWORK) {
+                                        "حرف «${roundState.targetLetter}» • با ${roundState.opponentName}"
+                                    } else {
+                                        "حرف «${roundState.targetLetter}»"
+                                    },
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                 )
@@ -367,6 +374,30 @@ fun GamePlayScreen(
                 }
             }
         }
+    }
+
+    if (waitingForOpponentAnswers) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("همگام‌سازی پاسخ‌ها") },
+            text = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+                    Text(
+                        text = "پاسخ‌های شما ارسال شد. در حال دریافت پاسخ‌های ${roundState.opponentName}...",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onExitGame) {
+                    Text("لغو و خروج", color = MaterialTheme.colorScheme.error)
+                }
+            },
+        )
     }
 
     if (showExitConfirm) {

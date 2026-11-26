@@ -1,6 +1,5 @@
 package com.example.ui
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
@@ -30,12 +29,10 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -46,7 +43,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.model.LetterPickMode
+import com.example.model.AppStats
+import com.example.model.GameMode
+import com.example.model.GameSettings
+import com.example.model.LocalLobbyState
 import com.example.ui.screens.CheatSheetScreen
 import com.example.ui.screens.GamePlayScreen
 import com.example.ui.screens.GuideScreen
@@ -77,9 +77,21 @@ fun EsmFamilApp(
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val stats by viewModel.stats.collectAsStateWithLifecycle()
+    val selectedGameMode by viewModel.selectedGameMode.collectAsStateWithLifecycle()
+    val localLobbyState by viewModel.localLobbyState.collectAsStateWithLifecycle()
     val activeRound by viewModel.activeRound.collectAsStateWithLifecycle()
     val roundResult by viewModel.currentRoundResult.collectAsStateWithLifecycle()
     val matchSummary by viewModel.matchSummary.collectAsStateWithLifecycle()
+    val syncNotice by viewModel.syncNotice.collectAsStateWithLifecycle()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(syncNotice) {
+        val message = syncNotice
+        if (!message.isNullOrBlank()) {
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearSyncNotice()
+        }
+    }
 
     EsmFamilTheme(themeMode = settings.themeMode) {
         when {
@@ -88,23 +100,19 @@ fun EsmFamilApp(
                 GamePlayScreen(
                     roundState = round,
                     soundEnabled = settings.soundEnabled,
+                    waitingForOpponentAnswers = localLobbyState.waitingForOpponentAnswers,
                     onToggleSound = viewModel::toggleSound,
                     onAnswerChange = viewModel::updateAnswer,
-                    onSubmitRound = viewModel::submitCurrentRound,
+                    onSubmitRound = { viewModel.submitCurrentRound(triggeredByPeerStop = false) },
                     onExitGame = viewModel::abandonActiveGame,
                 )
             }
 
             roundResult != null -> {
                 val result = roundResult!!
-                val totalRounds = if (settings.letterPickMode == LetterPickMode.MANUAL_CHOICE) {
-                    1
-                } else {
-                    settings.roundsCount
-                }
                 RoundResultScreen(
                     roundResult = result,
-                    totalRounds = totalRounds,
+                    totalRounds = result.totalRounds,
                     matchSummary = matchSummary,
                     onToggleValidity = viewModel::toggleCategoryValidity,
                     onNextRound = viewModel::startNextRound,
@@ -118,6 +126,9 @@ fun EsmFamilApp(
                     viewModel = viewModel,
                     settings = settings,
                     stats = stats,
+                    selectedGameMode = selectedGameMode,
+                    localLobbyState = localLobbyState,
+                    snackbarHostState = snackbarHostState,
                 )
             }
         }
@@ -127,14 +138,16 @@ fun EsmFamilApp(
 @Composable
 private fun MainHubScaffold(
     viewModel: EsmFamilViewModel,
-    settings: com.example.model.GameSettings,
-    stats: com.example.model.AppStats,
+    settings: GameSettings,
+    stats: AppStats,
+    selectedGameMode: GameMode,
+    localLobbyState: LocalLobbyState,
+    snackbarHostState: SnackbarHostState,
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: MainTab.HOME.route
 
-    val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
     fun navigateToTab(tab: MainTab) {
@@ -216,6 +229,19 @@ private fun MainHubScaffold(
                             HomeSetupScreen(
                                 settings = settings,
                                 stats = stats,
+                                selectedGameMode = selectedGameMode,
+                                localLobbyState = localLobbyState,
+                                isBluetoothSupported = viewModel.isBluetoothSupported(),
+                                isBluetoothEnabled = viewModel.isBluetoothEnabled(),
+                                missingBluetoothHostPermissions = viewModel::missingBluetoothHostPermissions,
+                                missingBluetoothScanPermissions = viewModel::missingBluetoothScanPermissions,
+                                onSelectGameMode = viewModel::setGameMode,
+                                onSelectLocalTransport = viewModel::setLocalTransport,
+                                onStartLocalHosting = viewModel::startLocalHosting,
+                                onStartLocalDiscovery = viewModel::startLocalDiscovery,
+                                onConnectLocalPeer = viewModel::connectToPeer,
+                                onConnectDirectWifi = viewModel::connectDirectWifi,
+                                onDisconnectLocalLobby = viewModel::disconnectLocalLobby,
                                 onToggleSound = viewModel::toggleSound,
                                 onSetSoundEnabled = viewModel::setSoundEnabled,
                                 onToggleLetter = viewModel::toggleLetterSelection,

@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.model.AppStats
 import com.example.model.BotDifficulty
+import com.example.model.GameMode
 import com.example.model.GameSettings
 import com.example.model.HonorBadge
 import com.example.model.LetterPickMode
@@ -143,6 +144,7 @@ class SettingsRepository(private val context: Context) {
         won: Boolean,
         difficulty: BotDifficulty,
         perfectRoundsEarned: Int,
+        gameMode: GameMode = GameMode.AI,
     ): MatchProgressionDelta {
         var delta: MatchProgressionDelta? = null
         context.dataStore.edit { prefs ->
@@ -155,7 +157,11 @@ class SettingsRepository(private val context: Context) {
             val nextWins = if (won) oldStats.totalWins + 1 else oldStats.totalWins
             val nextStreak = if (won) oldStats.currentWinStreak + 1 else 0
             val nextBestStreak = maxOf(oldStats.bestWinStreak, nextStreak)
-            val nextHardWins = if (won && difficulty == BotDifficulty.HARD) oldStats.hardWins + 1 else oldStats.hardWins
+            val nextHardWins = if (won && gameMode == GameMode.AI && difficulty == BotDifficulty.HARD) {
+                oldStats.hardWins + 1
+            } else {
+                oldStats.hardWins
+            }
             val nextCareerScore = oldStats.totalCareerScore + earnedCareer
             val nextHighScore = maxOf(oldStats.highScore, playerScore)
             val nextPerfectRounds = oldStats.perfectRounds + perfectRoundsEarned

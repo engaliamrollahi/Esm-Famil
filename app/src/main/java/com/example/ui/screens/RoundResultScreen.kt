@@ -22,12 +22,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.NavigateNext
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.MilitaryTech
-import androidx.compose.material.icons.rounded.NavigateNext
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -49,6 +49,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.model.Category
+import com.example.model.GameMode
 import com.example.model.MatchSummary
 import com.example.model.PersianTextHelper
 import com.example.model.RoundResult
@@ -105,7 +106,11 @@ fun RoundResultScreen(
                                 fontWeight = FontWeight.Bold,
                             )
                             Text(
-                                text = "برای تغییر داوری کلمات، دکمه داور هر بخش را بزنید",
+                                text = if (roundResult.gameMode == GameMode.AI) {
+                                    "برای تغییر داوری کلمات، دکمه داور هر بخش را بزنید"
+                                } else {
+                                    "امتیازها به صورت خودکار و یکسان بین دو دستگاه محاسبه شد"
+                                },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -127,26 +132,60 @@ fun RoundResultScreen(
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                 ) {
                     if (!isLastRound) {
-                        Button(
-                            onClick = onNextRound,
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = PersianTeal,
-                                contentColor = Color.White,
-                            ),
-                            contentPadding = PaddingValues(vertical = 14.dp),
-                            modifier = Modifier
-                                .widthIn(max = 720.dp)
-                                .fillMaxWidth()
-                                .testTag("next_round_button"),
-                        ) {
-                            Text(
-                                text = "شروع دور بعدی (${PersianTextHelper.toPersianDigits(roundResult.roundNumber + 1)} از ${PersianTextHelper.toPersianDigits(totalRounds)})",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Icon(Icons.Rounded.NavigateNext, contentDescription = null)
+                        if (roundResult.gameMode == GameMode.LOCAL_NETWORK && !roundResult.isHost) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .widthIn(max = 720.dp)
+                                    .fillMaxWidth(),
+                            ) {
+                                OutlinedButton(
+                                    onClick = onReturnHome,
+                                    shape = RoundedCornerShape(14.dp),
+                                    contentPadding = PaddingValues(vertical = 14.dp),
+                                    modifier = Modifier.weight(0.9f),
+                                ) {
+                                    Icon(Icons.Rounded.Home, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("خروج", fontWeight = FontWeight.Bold)
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    modifier = Modifier.weight(1.6f),
+                                ) {
+                                    Text(
+                                        text = "در انتظار شروع دور ${PersianTextHelper.toPersianDigits(roundResult.roundNumber + 1)} توسط میزبان...",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+                                    )
+                                }
+                            }
+                        } else {
+                            Button(
+                                onClick = onNextRound,
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = PersianTeal,
+                                    contentColor = Color.White,
+                                ),
+                                contentPadding = PaddingValues(vertical = 14.dp),
+                                modifier = Modifier
+                                    .widthIn(max = 720.dp)
+                                    .fillMaxWidth()
+                                    .testTag("next_round_button"),
+                            ) {
+                                Text(
+                                    text = "شروع دور بعدی (${PersianTextHelper.toPersianDigits(roundResult.roundNumber + 1)} از ${PersianTextHelper.toPersianDigits(totalRounds)})",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(Icons.AutoMirrored.Rounded.NavigateNext, contentDescription = null)
+                            }
                         }
                     } else {
                         Row(
@@ -167,21 +206,23 @@ fun RoundResultScreen(
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("صفحه اصلی", fontWeight = FontWeight.Bold)
                             }
-                            Button(
-                                onClick = onPlayAgain,
-                                shape = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = PersianTeal,
-                                    contentColor = Color.White,
-                                ),
-                                contentPadding = PaddingValues(vertical = 14.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("play_again_button"),
-                            ) {
-                                Icon(Icons.Rounded.Replay, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("بازی دوباره", fontWeight = FontWeight.Bold)
+                            if (roundResult.gameMode == GameMode.AI || roundResult.isHost) {
+                                Button(
+                                    onClick = onPlayAgain,
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = PersianTeal,
+                                        contentColor = Color.White,
+                                    ),
+                                    contentPadding = PaddingValues(vertical = 14.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("play_again_button"),
+                                ) {
+                                    Icon(Icons.Rounded.Replay, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("بازی دوباره", fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
@@ -238,13 +279,13 @@ fun RoundResultScreen(
                                     text = when {
                                         playerWon -> "تبریک! شما برنده مسابقه شدید"
                                         isTie -> "مسابقه با نتیجه مساوی به پایان رسید!"
-                                        else -> "حریف هوشمند این دست را برد!"
+                                        else -> "${matchSummary.opponentName} این دست را برد!"
                                     },
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold,
                                 )
                                 Text(
-                                    text = "امتیاز کل شما: ${PersianTextHelper.toPersianDigits(matchSummary.playerTotalScore)}  |  حریف: ${PersianTextHelper.toPersianDigits(matchSummary.botTotalScore)}",
+                                    text = "امتیاز کل شما: ${PersianTextHelper.toPersianDigits(matchSummary.playerTotalScore)}  |  ${matchSummary.opponentName}: ${PersianTextHelper.toPersianDigits(matchSummary.botTotalScore)}",
                                     style = MaterialTheme.typography.titleMedium,
                                 )
 
@@ -355,7 +396,7 @@ fun RoundResultScreen(
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
-                                    text = "امتیاز حریف هوشمند",
+                                    text = "امتیاز ${roundResult.opponentName}",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -429,7 +470,7 @@ fun RoundResultScreen(
                                 }
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "پاسخ حریف (${PersianTextHelper.toPersianDigits(eval.botScore)} امتیاز):",
+                                        text = "پاسخ ${roundResult.opponentName} (${PersianTextHelper.toPersianDigits(eval.botScore)} امتیاز):",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
@@ -460,7 +501,7 @@ fun RoundResultScreen(
                                     color = if (eval.isPlayerValid) ScoreTenGreen else MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
 
-                                if (eval.playerAnswer.isNotBlank() && eval.startsWithCorrectLetter) {
+                                if (roundResult.gameMode == GameMode.AI && eval.playerAnswer.isNotBlank() && eval.startsWithCorrectLetter) {
                                     TextButton(
                                         onClick = { onToggleValidity(eval.category) },
                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),

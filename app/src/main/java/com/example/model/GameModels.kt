@@ -200,6 +200,55 @@ data class MatchProgressionDelta(
     val leveledUp: Boolean get() = newLevel.level > oldLevel.level
 }
 
+enum class GameMode(val titleFa: String, val subtitleFa: String) {
+    AI("هوش مصنوعی", "رقابت با ربات هوشمند در ۳ سطح"),
+    LOCAL_NETWORK("شبکه محلی", "همگام‌سازی با بلوتوث یا وای‌فای"),
+    ONLINE("آنلاین", "مسابقه ابری و اینترنتی"),
+}
+
+enum class LocalTransportType(val titleFa: String, val subtitleFa: String) {
+    WIFI("وای‌فای محلی", "اتصال روی یک شبکه وای‌فای یا هات‌اسپات"),
+    BLUETOOTH("بلوتوث", "اتصال مستقیم بین دو گوشی نزدیک"),
+}
+
+enum class LocalRole {
+    HOST,
+    GUEST,
+}
+
+enum class LocalConnectionStatus(val labelFa: String) {
+    IDLE("آماده اتصال"),
+    HOSTING("در انتظار پیوستن بازیکن..."),
+    SCANNING("در حال جست‌وجوی بازی‌های اطراف..."),
+    CONNECTING("در حال برقراری ارتباط..."),
+    CONNECTED("متصل و آماده بازی"),
+    ERROR("خطا در اتصال"),
+}
+
+data class DiscoveredPeer(
+    val id: String,
+    val name: String,
+    val address: String,
+    val port: Int,
+    val transport: LocalTransportType,
+    val isPaired: Boolean = false,
+)
+
+data class LocalLobbyState(
+    val transport: LocalTransportType = LocalTransportType.WIFI,
+    val role: LocalRole? = null,
+    val status: LocalConnectionStatus = LocalConnectionStatus.IDLE,
+    val statusDetail: String = "",
+    val roomName: String = "",
+    val hostIpAddress: String = "",
+    val hostPort: Int = 0,
+    val discoveredPeers: List<DiscoveredPeer> = emptyList(),
+    val opponentName: String? = null,
+    val opponentAvatar: PlayerAvatar? = null,
+    val waitingForOpponentAnswers: Boolean = false,
+    val errorMessage: String? = null,
+)
+
 data class ActiveRoundState(
     val roundNumber: Int,
     val totalRounds: Int,
@@ -208,6 +257,9 @@ data class ActiveRoundState(
     val remainingSeconds: Int,
     val answers: Map<Category, String> = Category.entries.associateWith { "" },
     val usedLetters: List<String> = emptyList(),
+    val gameMode: GameMode = GameMode.AI,
+    val opponentName: String = "حریف هوشمند",
+    val isHost: Boolean = true,
 )
 
 data class CategoryEvaluation(
@@ -224,16 +276,22 @@ data class CategoryEvaluation(
 
 data class RoundResult(
     val roundNumber: Int,
+    val totalRounds: Int = 1,
     val targetLetter: String,
     val evaluations: List<CategoryEvaluation>,
     val playerRoundScore: Int,
     val botRoundScore: Int,
+    val gameMode: GameMode = GameMode.AI,
+    val opponentName: String = "حریف هوشمند",
+    val isHost: Boolean = true,
 )
 
 data class MatchSummary(
     val rounds: List<RoundResult>,
     val playerTotalScore: Int,
     val botTotalScore: Int,
+    val gameMode: GameMode = GameMode.AI,
+    val opponentName: String = "حریف هوشمند",
     val progressionDelta: MatchProgressionDelta? = null,
 )
 

@@ -222,6 +222,11 @@ fun GuideScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
+                    Text(
+                        text = "• در صفحه اصلی می‌توانید بین ۳ حالت «هوش مصنوعی» (آسان، متوسط، حرفه‌ای)، «شبکه محلی» (همگام‌سازی دونفره با بلوتوث یا وای‌فای) و «آنلاین» انتخاب کنید.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp),

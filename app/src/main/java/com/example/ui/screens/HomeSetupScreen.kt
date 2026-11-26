@@ -28,11 +28,15 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.Casino
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.Hub
 import androidx.compose.material.icons.rounded.MilitaryTech
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Psychology
+import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material3.Button
@@ -65,11 +69,18 @@ import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.model.AppStats
 import com.example.model.BotDifficulty
+import com.example.model.DiscoveredPeer
+import com.example.model.GameMode
 import com.example.model.GameSettings
 import com.example.model.LetterPickMode
+import com.example.model.LocalConnectionStatus
+import com.example.model.LocalLobbyState
+import com.example.model.LocalRole
+import com.example.model.LocalTransportType
 import com.example.model.PERSIAN_ALPHABET
 import com.example.model.PersianTextHelper
 import com.example.model.TIMER_OPTIONS_SECONDS
+import com.example.ui.components.LocalNetworkLobbyCard
 import com.example.ui.components.PlayerAvatarBadge
 import com.example.ui.components.SoundQuickToggleButton
 import com.example.ui.theme.PersianTeal
@@ -81,6 +92,19 @@ import com.example.ui.theme.SaffronGold
 fun HomeSetupScreen(
     settings: GameSettings,
     stats: AppStats,
+    selectedGameMode: GameMode,
+    localLobbyState: LocalLobbyState,
+    isBluetoothSupported: Boolean,
+    isBluetoothEnabled: Boolean,
+    missingBluetoothHostPermissions: () -> List<String>,
+    missingBluetoothScanPermissions: () -> List<String>,
+    onSelectGameMode: (GameMode) -> Unit,
+    onSelectLocalTransport: (LocalTransportType) -> Unit,
+    onStartLocalHosting: () -> Unit,
+    onStartLocalDiscovery: () -> Unit,
+    onConnectLocalPeer: (DiscoveredPeer) -> Unit,
+    onConnectDirectWifi: (String, Int) -> Unit,
+    onDisconnectLocalLobby: () -> Unit,
     onToggleSound: () -> Unit,
     onSetSoundEnabled: (Boolean) -> Unit,
     onToggleLetter: (String) -> Unit,
@@ -323,149 +347,316 @@ fun HomeSetupScreen(
                 )
             }
 
-            // Pre-Game Setup Card
-            Card(
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+            // 3 Game Modes Selector
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "انتخاب حالت بازی",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(
-                        text = "تنظیمات پیش از شروع بازی",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-
-                    // Sound Setting inline
-                    Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Row(
+                    GameMode.entries.forEach { mode ->
+                        val selected = selectedGameMode == mode
+                        val icon = when (mode) {
+                            GameMode.AI -> Icons.Rounded.SmartToy
+                            GameMode.LOCAL_NETWORK -> Icons.Rounded.Hub
+                            GameMode.ONLINE -> Icons.Rounded.Public
+                        }
+                        Surface(
+                            onClick = { onSelectGameMode(mode) },
+                            shape = RoundedCornerShape(16.dp),
+                            color = if (selected) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surface
+                            },
+                            border = BorderStroke(
+                                width = if (selected) 2.dp else 1.dp,
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                                },
+                            ),
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
+                                .weight(1f)
+                                .minimumInteractiveComponentSize()
+                                .testTag("game_mode_${mode.name.lowercase()}"),
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
                             ) {
                                 Icon(
-                                    imageVector = if (settings.soundEnabled) Icons.AutoMirrored.Rounded.VolumeUp else Icons.AutoMirrored.Rounded.VolumeOff,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                )
-                                Column {
-                                    Text(
-                                        text = "صدای بازی",
-                                        style = MaterialTheme.typography.titleSmall,
-                                    )
-                                    Text(
-                                        text = if (settings.soundEnabled) "افکت‌های صوتی و هشدار زمان فعال است" else "بازی در حالت بی‌صدا اجرا می‌شود",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                            Switch(
-                                checked = settings.soundEnabled,
-                                onCheckedChange = onSetSoundEnabled,
-                                modifier = Modifier.testTag("pregame_sound_switch"),
-                            )
-                        }
-                    }
-
-                    // Timer Selection
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Schedule,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(20.dp),
-                            )
-                            Text(
-                                text = "زمان برای پاسخگویی",
-                                style = MaterialTheme.typography.titleSmall,
-                            )
-                        }
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            TIMER_OPTIONS_SECONDS.forEach { seconds ->
-                                val selected = settings.timerSeconds == seconds
-                                FilterChip(
-                                    selected = selected,
-                                    onClick = { onSetTimerSeconds(seconds) },
-                                    label = {
-                                        Text(
-                                            text = PersianTextHelper.formatDurationLabel(seconds),
-                                            style = MaterialTheme.typography.labelMedium,
-                                        )
+                                    imageVector = icon,
+                                    contentDescription = mode.titleFa,
+                                    tint = if (selected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
                                     },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                                    ),
-                                    modifier = Modifier.testTag("timer_chip_$seconds"),
+                                    modifier = Modifier.size(26.dp),
+                                )
+                                Text(
+                                    text = mode.titleFa,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center,
+                                    color = if (selected) {
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface
+                                    },
+                                )
+                                Text(
+                                    text = when (mode) {
+                                        GameMode.AI -> "تک‌نفره"
+                                        GameMode.LOCAL_NETWORK -> "بلوتوث / وای‌فای"
+                                        GameMode.ONLINE -> "اینترنتی"
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    textAlign = TextAlign.Center,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
                     }
+                }
+            }
 
-                    // Bot Difficulty & Rounds Count
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (selectedGameMode == GameMode.LOCAL_NETWORK) {
+                LocalNetworkLobbyCard(
+                    lobbyState = localLobbyState,
+                    isBluetoothSupported = isBluetoothSupported,
+                    isBluetoothEnabled = isBluetoothEnabled,
+                    missingBluetoothHostPermissions = missingBluetoothHostPermissions,
+                    missingBluetoothScanPermissions = missingBluetoothScanPermissions,
+                    onSelectTransport = onSelectLocalTransport,
+                    onStartHosting = onStartLocalHosting,
+                    onStartDiscovery = onStartLocalDiscovery,
+                    onConnectPeer = onConnectLocalPeer,
+                    onConnectDirectWifi = onConnectDirectWifi,
+                    onDisconnect = onDisconnectLocalLobby,
+                )
+            }
+
+            if (selectedGameMode == GameMode.ONLINE) {
+                Card(
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("online_mode_card"),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.Psychology,
+                                imageVector = Icons.Rounded.CloudOff,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(20.dp),
+                                modifier = Modifier.size(28.dp),
                             )
-                            Text(
-                                text = "سطح حریف هوشمند",
-                                style = MaterialTheme.typography.titleSmall,
-                            )
+                            Column {
+                                Text(
+                                    text = "بازی آنلاین ابری غیرفعال است",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Text(
+                                    text = "برای ساخت اتاق اینترنتی و همگام‌سازی ابری، فعال‌سازی سرویس ابری (Firebase) لازم است که در این نشست تأیید نشد.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            BotDifficulty.entries.forEach { diff ->
-                                val selected = settings.botDifficulty == diff
-                                FilterChip(
-                                    selected = selected,
-                                    onClick = { onSetBotDifficulty(diff) },
-                                    label = {
+                            Button(
+                                onClick = { onSelectGameMode(GameMode.LOCAL_NETWORK) },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = PersianTeal),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text("شبکه محلی (بلوتوث/وای‌فای)", style = MaterialTheme.typography.labelMedium)
+                            }
+                            OutlinedButton(
+                                onClick = { onSelectGameMode(GameMode.AI) },
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text("بازی با هوش مصنوعی", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
+                }
+            }
+
+            val showRoundSetupCard = selectedGameMode == GameMode.AI ||
+                (selectedGameMode == GameMode.LOCAL_NETWORK && localLobbyState.role != LocalRole.GUEST)
+
+            if (showRoundSetupCard) {
+                // Pre-Game Setup Card
+                Card(
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        Text(
+                            text = if (selectedGameMode == GameMode.LOCAL_NETWORK) {
+                                "تنظیمات بازی میزبان (حروف و زمان)"
+                            } else {
+                                "تنظیمات پیش از شروع بازی"
+                            },
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+
+                        // Sound Setting inline
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = if (settings.soundEnabled) Icons.AutoMirrored.Rounded.VolumeUp else Icons.AutoMirrored.Rounded.VolumeOff,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                    Column {
                                         Text(
-                                            text = diff.titleFa,
-                                            style = MaterialTheme.typography.labelMedium,
+                                            text = "صدای بازی",
+                                            style = MaterialTheme.typography.titleSmall,
                                         )
-                                    },
-                                    modifier = Modifier.weight(1f),
+                                        Text(
+                                            text = if (settings.soundEnabled) "افکت‌های صوتی و هشدار زمان فعال است" else "بازی در حالت بی‌صدا اجرا می‌شود",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                                Switch(
+                                    checked = settings.soundEnabled,
+                                    onCheckedChange = onSetSoundEnabled,
+                                    modifier = Modifier.testTag("pregame_sound_switch"),
                                 )
                             }
                         }
-                        Text(
-                            text = settings.botDifficulty.descriptionFa,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+
+                        // Timer Selection
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Schedule,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.secondary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Text(
+                                    text = "زمان برای پاسخگویی",
+                                    style = MaterialTheme.typography.titleSmall,
+                                )
+                            }
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                TIMER_OPTIONS_SECONDS.forEach { seconds ->
+                                    val selected = settings.timerSeconds == seconds
+                                    FilterChip(
+                                        selected = selected,
+                                        onClick = { onSetTimerSeconds(seconds) },
+                                        label = {
+                                            Text(
+                                                text = PersianTextHelper.formatDurationLabel(seconds),
+                                                style = MaterialTheme.typography.labelMedium,
+                                            )
+                                        },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                                        ),
+                                        modifier = Modifier.testTag("timer_chip_$seconds"),
+                                    )
+                                }
+                            }
+                        }
+
+                        // Bot Difficulty (only in AI Mode)
+                        if (selectedGameMode == GameMode.AI) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Psychology,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                    Text(
+                                        text = "سطح حریف هوشمند",
+                                        style = MaterialTheme.typography.titleSmall,
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    BotDifficulty.entries.forEach { diff ->
+                                        val selected = settings.botDifficulty == diff
+                                        FilterChip(
+                                            selected = selected,
+                                            onClick = { onSetBotDifficulty(diff) },
+                                            label = {
+                                                Text(
+                                                    text = diff.titleFa,
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                )
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = settings.botDifficulty.descriptionFa,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
 
                     // Letter Pick Mode
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -589,34 +780,46 @@ fun HomeSetupScreen(
                                 }
                             }
                         }
+                        }
                     }
                 }
             }
 
-            // Primary Start Game CTA
-            Button(
-                onClick = onStartGame,
-                shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = PersianTeal,
-                    contentColor = Color.White,
-                ),
-                contentPadding = PaddingValues(vertical = 16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("start_game_button"),
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.PlayArrow,
-                    contentDescription = null,
-                    modifier = Modifier.size(26.dp),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "شروع بازی اسم فامیل",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
+            // Primary Start Game CTA (AI mode or Host connected in Local Network mode)
+            val canStartAi = selectedGameMode == GameMode.AI
+            val canStartLocalHost = selectedGameMode == GameMode.LOCAL_NETWORK &&
+                localLobbyState.status == LocalConnectionStatus.CONNECTED &&
+                localLobbyState.role == LocalRole.HOST
+
+            if (canStartAi || canStartLocalHost) {
+                Button(
+                    onClick = onStartGame,
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PersianTeal,
+                        contentColor = Color.White,
+                    ),
+                    contentPadding = PaddingValues(vertical = 16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("start_game_button"),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(26.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (selectedGameMode == GameMode.LOCAL_NETWORK) {
+                            "شروع بازی دونفره (${localLobbyState.transport.titleFa})"
+                        } else {
+                            "شروع بازی با هوش مصنوعی"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
